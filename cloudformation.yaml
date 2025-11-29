@@ -6,7 +6,7 @@ Resources:
   B1:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: bk00119-photos-b1
+      BucketName: bk00119-photos-b1-stack
       WebsiteConfiguration:
         IndexDocument: index.html
 
@@ -21,12 +21,12 @@ Resources:
             Effect: Allow
             Principal: "*"
             Action: s3:GetObject
-            Resource: arn:aws:s3:::bk00119-photos-b1/*
+            Resource: arn:aws:s3:::bk00119-photos-b1-stack/*
 
   B2:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: bk00119-photos-b2
+      BucketName: bk00119-photos-b2-stack
 
   B2Policy:
     Type: AWS::S3::BucketPolicy
@@ -38,19 +38,19 @@ Resources:
           - Sid: AllowAPIGatewayPutObject
             Effect: Allow
             Principal:
-              AWS: arn:aws:iam::887916056974:role/photos-api-gateway
+              AWS: !GetAtt ApiGatewayRole.Arn
             Action: s3:PutObject
-            Resource: arn:aws:s3:::bk00119-photos-b2/*
+            Resource: arn:aws:s3:::bk00119-photos-b2-stack/*
           - Sid: AllowPublicReadObject
             Effect: Allow
             Principal: "*"
             Action: s3:GetObject
-            Resource: arn:aws:s3:::bk00119-photos-b2/*
+            Resource: arn:aws:s3:::bk00119-photos-b2-stack/*
 
   ApiGatewayRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: photos-api-gateway
+      RoleName: photos-api-gateway-stack-role
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -65,7 +65,7 @@ Resources:
   LambdaIndexRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: index-photos-role
+      RoleName: index-photos-stack-role
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -76,12 +76,12 @@ Resources:
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonRekognitionReadOnlyAccess
         - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
-        - arn:aws:iam::887916056974:policy/AWSLambdaBasicExecutionRole-823d8fc0-c8ea-40d0-98f3-cc80705dff17
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 
   LambdaSearchRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: search-photos-role
+      RoleName: search-photos-stack-role
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -93,12 +93,11 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonLexRunBotsOnly
         - arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-        - arn:aws:iam::887916056974:policy/AWSLambdaBasicExecutionRole-0335d589-7f85-4412-827d-7bf118579157
 
   LF1:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: index-photos
+      FunctionName: index-photos-stack
       Runtime: python3.14
       Handler: index_photos_lambda.lambda_handler
       Role: !GetAtt LambdaIndexRole.Arn
@@ -111,7 +110,7 @@ Resources:
   LF2:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: search-photos
+      FunctionName: search-photos-stack
       Runtime: python3.14
       Handler: search_photos_lambda.lambda_handler
       Role: !GetAtt LambdaSearchRole.Arn
@@ -124,7 +123,7 @@ Resources:
   API:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: photo-search-api
+      Name: photo-search-api-stack
 
   APIDeployment:
     Type: AWS::ApiGateway::Deployment
