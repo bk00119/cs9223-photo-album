@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: HW3 CloudFormation Stack
+
+Resources:
+  B1:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: bk00119-photos-b1
+      WebsiteConfiguration:
+        IndexDocument: index.html
+
+  B1Policy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref B1
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: arn:aws:s3:::bk00119-photos-b1/*
+
+  B2:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: bk00119-photos-b2
+
+  B2Policy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref B2
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowAPIGatewayPutObject
+            Effect: Allow
+            Principal:
+              AWS: arn:aws:iam::887916056974:role/photos-api-gateway
+            Action: s3:PutObject
+            Resource: arn:aws:s3:::bk00119-photos-b2/*
+          - Sid: AllowPublicReadObject
+            Effect: Allow
+            Principal: "*"
+            Action: s3:GetObject
+            Resource: arn:aws:s3:::bk00119-photos-b2/*
+
+  ApiGatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: photos-api-gateway
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+  LambdaIndexRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: index-photos-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonRekognitionReadOnlyAccess
+        - arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess
+        - arn:aws:iam::887916056974:policy/AWSLambdaBasicExecutionRole-823d8fc0-c8ea-40d0-98f3-cc80705dff17
+
+  LambdaSearchRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: search-photos-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonLexRunBotsOnly
+        - arn:aws:iam::aws:policy/AmazonOpenSearchServiceFullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::887916056974:policy/AWSLambdaBasicExecutionRole-0335d589-7f85-4412-827d-7bf118579157
+
+  LF1:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: index-photos
+      Runtime: python3.14
+      Handler: index_photos_lambda.lambda_handler
+      Role: !GetAtt LambdaIndexRole.Arn
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              return {"statusCode": 200, "body": "LF1"}
+      Timeout: 20
+
+  LF2:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: search-photos
+      Runtime: python3.14
+      Handler: search_photos_lambda.lambda_handler
+      Role: !GetAtt LambdaSearchRole.Arn
+      Code:
+        ZipFile: |
+          def lambda_handler(event, context):
+              return {"statusCode": 200, "body": "LF2"}
+      Timeout: 20
+
+  API:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: photo-search-api
+
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref API
+      StageName: dev
+    DependsOn: API
+
+Outputs:
+  FrontendURL:
+    Value: !GetAtt B1.WebsiteURL
